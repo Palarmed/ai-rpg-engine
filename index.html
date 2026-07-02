@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPG Master</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="setup">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:20px;font-weight:600;color:#fff;">⚔ RPG Master</div>
+    <div class="steps-nav" id="steps-nav"></div>
+  </div>
+  <div class="row-end" style="border-bottom:1px solid var(--border);padding-bottom:1rem;">
+    <button class="btn" id="save-preset-btn">💾 Сохранить пресет</button>
+    <button class="btn" id="export-preset-btn">📤 Экспорт</button>
+    <button class="btn" id="import-preset-btn">📥 Импорт</button>
+    <button class="btn" id="load-game-top-btn">📂 Загрузить игру</button>
+    <button class="btn btn-primary" id="start-game-top-btn">▶ Начать игру</button>
+  </div>
+  <input type="file" id="load-game-top-input" accept=".json" style="display:none">
+
+  <!-- Step 0: Connection -->
+  <div class="setup-step active" id="step-0">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+      <button class="btn btn-primary" id="key-next" style="width:auto;padding:8px 20px;">Далее →</button>
+    </div>
+    <div class="step-title">Подключение</div>
+    <div>
+      <label>Бэкенд</label>
+      <select id="backend-select">
+        <option value="anthropic">Anthropic API</option>
+        <option value="openai">OpenAI API (ChatGPT)</option>
+        <option value="openrouter">OpenRouter (много моделей, есть бесплатные)</option>
+      </select>
+    </div>
+    <div id="anthropic-settings">
+      <div class="step-sub">Получить ключ: console.anthropic.com → API Keys</div>
+      <div><label>Anthropic API Key</label><input type="password" id="key-input" placeholder="sk-ant-api03-..."/></div>
+      <div class="row">
+        <div style="flex:2"><label>Модель</label>
+          <select id="model-select">
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6 — умнее, дороже</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 — быстрее, дешевле</option>
+          </select>
+        </div>
+        <div style="flex:1"><label>Макс. токенов</label><input type="text" id="tokens-input" value="1200"/></div>
+      </div>
+    </div>
+
+    <div id="openrouter-settings" style="display:none;">
+      <select id="or-model-select" onchange="
+        const inp = document.getElementById('or-model');
+        if (this.value === 'custom') { inp.style.display=''; inp.focus(); }
+        else { inp.value = this.value; inp.style.display='none'; }
+      ">
+        <option value="openrouter/owl-alpha">openrouter/owl-alpha</option>
+        <option value="google/gemma-4-31b-it:free">google/gemma-4-31b-it:free</option>
+        <option value="nvidia/nemotron-3-ultra-550b-a55b:free">nvidia/nemotron-3-ultra-550b-a55b:free</option>
+        <option value="custom">✏ Ввести своё...</option>
+      </select>
+      <input type="text" id="or-model" value="nvidia/nemotron-3-super-120b-a12b:free" style="display:none;margin-top:6px;" placeholder="provider/model-name" />
+      <div><label>OpenRouter API Key</label><input type="password" id="or-key-input" placeholder="sk-or-v1-..."/></div>
+      <div class="row">
+        <div style="flex:1"><label>Макс. токенов</label><input type="text" id="or-tokens" value="2000"/></div>
+      </div>
+    </div>
+    <div id="openai-settings" style="display:none;">
+      <div class="step-sub">Получить ключ: platform.openai.com → API Keys</div>
+      <div><label>OpenAI API Key</label><input type="password" id="oai-key-input" placeholder="sk-..."/></div>
+      <div class="row">
+        <div style="flex:2"><label>Модель</label>
+          <select id="oai-model-select" onchange="
+            const inp = document.getElementById('oai-model');
+            if (this.value === 'custom') { inp.style.display=''; inp.focus(); }
+            else { inp.value = this.value; inp.style.display='none'; }
+          ">
+            <option value="gpt-5.5">gpt-5.5 — флагман, умнее, дороже</option>
+            <option value="gpt-5.4-mini" selected>gpt-5.4-mini — баланс цены и качества</option>
+            <option value="gpt-5.4-nano">gpt-5.4-nano — быстрее, дешевле</option>
+            <option value="gpt-5.2-chat-latest">gpt-5.2-chat-latest — instant, без размышлений</option>
+            <option value="custom">✏ Ввести своё...</option>
+          </select>
+          <input type="text" id="oai-model" value="gpt-5.4-mini" style="display:none;margin-top:6px;" placeholder="имя модели"/>
+        </div>
+        <div style="flex:1"><label>Макс. токенов</label><input type="text" id="oai-tokens" value="2000"/></div>
+      </div>
+    </div>
+    <div><label>Сохранённые пресеты</label><div class="preset-bar" id="preset-bar"><span style="font-size:12px;color:var(--text3);">нет сохранённых пресетов</span></div></div>
+  </div>
+
+  <!-- Step 1: DM + Story + Rules -->
+  <div class="setup-step" id="step-1">
+    <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+      <button class="btn" id="back-1">← Назад</button>
+      <button class="btn btn-primary" id="next-1">Далее →</button>
+    </div>
+    <div class="step-title">Мастер и персонаж</div>
+    <div><label>Поведение и характер Мастера</label><textarea id="inp-dm" rows="3" placeholder="Строгий и беспощадный, высокая сложность..."></textarea></div>
+    <div><label>История персонажа</label><textarea id="inp-story" rows="5" placeholder="Опиши персонажа, его прошлое, цели..."></textarea></div>
+    <div><label>Правила игры</label><textarea id="inp-rules" rows="5" placeholder="Броски, прогресс, механики, сеттинг..."></textarea></div>
+    <label for="initial-message">Начальное сообщение
+      <span style="color:var(--text3);font-size:11px">— отправляется автоматически первым ходом</span>
+    </label>
+    <textarea id="initial-message" rows="3"
+      placeholder="Установи персонажу: Сила 14, Ловкость 10, ХП 8/8. Начни с описания таверны..."></textarea>
+  </div>
+
+  <!-- Step 2: Sections + Variables -->
+  <div class="setup-step" id="step-2">
+    <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+      <button class="btn" id="back-2">← Назад</button>
+      <button class="btn btn-primary" id="next-2">Далее →</button>
+    </div>
+    <div class="step-title">Разделы и переменные</div>
+    <div class="step-sub">Создай разделы, затем добавляй переменные прямо внутрь них. Переменные без раздела попадают в общий список ниже.</div>
+
+    <div class="add-section-row">
+      <input type="text" id="section-name" placeholder="Название раздела (Персонаж, Боевые...)" />
+      <select id="section-side">
+        <option value="right">Правая панель</option>
+        <option value="left">Левая панель</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="add-section-btn">+ Раздел</button>
+    </div>
+
+    <div id="sections-editor"></div>
+
+    <div class="unsectioned-block">
+      <div class="unsectioned-header">Без раздела</div>
+      <div id="unsectioned-vars-list"></div>
+      <button class="btn btn-sm" id="add-var-unsectioned-btn">+ переменная</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Actions & Triggers -->
+  <div class="setup-step" id="step-3">
+    <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+      <button class="btn" id="back-3">← Назад</button>
+      <button class="btn btn-primary" id="next-3">Далее →</button>
+    </div>
+    <div class="step-title">Действия и триггеры</div>
+    <div class="step-sub">Действия — кнопки по клику игрока. Триггеры — срабатывают автоматически при изменении переменных.</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+      <span style="font-size:14px;font-weight:600;color:#fff;">Действия</span>
+      <button class="btn btn-sm btn-primary" onclick="openActionModal()">+ Действие</button>
+    </div>
+    <div id="actions-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <span style="font-size:14px;font-weight:600;color:#fff;">Добавить триггер</span>
+      <div class="row" style="flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:130px"><label>Переменная</label><select id="trg-var"></select></div>
+        <div style="flex:1;min-width:160px">
+          <label>Событие</label>
+          <select id="trg-event">
+            <option value="max_reached">Ресурс достиг максимума</option>
+            <option value="min_reached">Ресурс достиг 0</option>
+            <option value="gte">Стат &gt;=</option>
+            <option value="lte">Стат &lt;=</option>
+            <option value="eq">Стат ==</option>
+          </select>
+        </div>
+        <div id="trg-event-value-row" style="flex:0;min-width:80px;display:none"><label>Значение</label><input type="text" id="trg-event-value" placeholder="100"/></div>
+        <div style="display:flex;align-items:center;gap:6px;padding-top:18px;">
+          <input type="checkbox" id="trg-repeat" style="width:auto">
+          <label style="margin:0">Повторно</label>
+        </div>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:160px">
+          <label>Тип эффекта</label>
+          <select id="trg-eff-type">
+            <option value="adjust_stat">Изменить стат (±N)</option>
+            <option value="adjust_resource">Изменить ресурс (±N)</option>
+            <option value="adjust_resource_max">Изменить макс. ресурса (±N)</option>
+            <option value="add_context">Добавить контекст (тихо)</option>
+            <option value="send_message">Отправить ход</option>
+          </select>
+        </div>
+        <div id="trg-eff-var-row" style="display:flex;gap:8px;flex:1">
+          <div style="flex:1"><label>Переменная эффекта</label><select id="trg-eff-var"></select></div>
+          <div><label>±N</label><input type="text" id="trg-eff-delta" placeholder="+1" style="width:70px"/></div>
+        </div>
+        <div id="trg-eff-text-row" style="display:none;flex:1"><label>Текст</label><input type="text" id="trg-eff-text" placeholder="Текст сообщения или контекста"/></div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="add-trigger-btn" style="align-self:flex-start;">+ Триггер</button>
+    </div>
+    <div id="triggers-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+
+  <!-- Step 4: Additional Settings -->
+  <div class="setup-step" id="step-4">
+    <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+      <button class="btn" id="back-4">← Назад</button>
+    </div>
+    <div class="step-title">Дополнительные настройки</div>
+    <div class="step-sub">Расширенные механики: таймеры реального времени и другие параметры.</div>
+
+    <!-- Timer settings block -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="timers-enabled" style="width:auto;cursor:pointer;">
+        <label for="timers-enabled" style="font-size:15px;font-weight:600;color:#fff;cursor:pointer;margin:0;">Включить таймеры</label>
+      </div>
+      <div class="step-sub" style="margin-top:-8px;">
+        Модель будет отмечать прошедшее время и управлять таймерами (яды, эффекты, кровотечение...).
+        Когда таймер истекает — игра уведомляет модель, та обязана отреагировать.
+      </div>
+
+      <div id="timer-settings-fields" style="display:none;flex-direction:column;gap:12px;">
+        <div class="row">
+          <div style="flex:2">
+            <label>Название единицы времени</label>
+            <input type="text" id="time-unit-name" value="Раунд" placeholder="Раунд / День / Ход..." />
+          </div>
+          <div style="flex:1">
+            <label>Секунд в единице</label>
+            <input type="text" id="time-unit-seconds" value="6" placeholder="6" />
+          </div>
+        </div>
+        <div class="step-sub">
+          Примеры: Раунд боя = 6 сек · Сцена = 60 сек · Час = 3600 сек · День = 86400 сек.<br>
+          Это нужно для корректного отсчёта по реальному игровому времени.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Action modal -->
+<div id="action-modal-overlay" class="modal-overlay">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-title">Настройка действия</div>
+    <div class="row">
+      <div style="flex:2"><label>Название кнопки</label><input type="text" id="am-label" placeholder="Повысить Силу"/></div>
+      <div style="flex:1"><label>Переменная</label><select id="am-var"></select></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="am-item-level" style="width:auto">
+      <label style="margin:0">Item-level (кнопка у каждой записи)</label>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label style="margin:0">Условия (все должны выполниться)</label>
+        <button class="btn btn-sm" id="am-add-cond">+ условие</button>
+      </div>
+      <div id="am-conditions" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label style="margin:0">Эффекты</label>
+        <button class="btn btn-sm" id="am-add-eff">+ эффект</button>
+      </div>
+      <div id="am-effects" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <div class="row-end">
+      <button class="btn btn-sm" id="am-cancel">Отмена</button>
+      <button class="btn btn-primary btn-sm" id="am-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Variable create/edit modal -->
+<div id="var-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="var-modal-title">Новая переменная</div>
+    <div class="row">
+      <div style="flex:1">
+        <label>Тип</label>
+        <select id="vm-type">
+          <option value="stat">stat — число/характеристика</option>
+          <option value="skill">skill — навык с уровнем и % прокачки</option>
+          <option value="resource">resource — ресурс с баром (ХП, Мана...)</option>
+          <option value="list">list — простой список</option>
+          <option value="entry">entry — записи с эффектом и тегами</option>
+          <option value="notes">notes — внутренние заметки DM</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1"><label>Ключ</label><input type="text" id="vm-name" placeholder="hp / strength..."/></div>
+      <div style="flex:1"><label>Отображаемое имя</label><input type="text" id="vm-label" placeholder="ХП / Сила..."/></div>
+    </div>
+    <div><label>Описание для DM</label><input type="text" id="vm-desc" placeholder="Используется для проверок силы..."/></div>
+
+    <!-- Type-specific init fields -->
+    <div id="vm-init-stat" class="vm-init-block">
+      <label>Начальное значение</label>
+      <input type="text" id="vm-init-stat-val" placeholder="0" />
+    </div>
+    <div id="vm-init-resource" class="vm-init-block">
+      <div class="row">
+        <div style="flex:1"><label>Текущее</label><input type="text" id="vm-init-res-cur" placeholder="10" /></div>
+        <div style="flex:1">
+          <label>Максимум <span style="color:var(--text3);font-size:11px;">(пусто = без максимума)</span></label>
+          <input type="text" id="vm-init-res-max" placeholder="пусто = ∞" />
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Инкам: количество <span style="color:var(--text3);font-size:11px;">(пусто = нет; можно минус)</span></label>
+          <input type="text" id="vm-income-amount" placeholder="напр. 10" />
+        </div>
+        <div style="flex:1">
+          <label>раз в N единиц времени</label>
+          <input type="text" id="vm-income-every" placeholder="1" />
+        </div>
+      </div>
+      <div>
+        <label>Инкам — условия прироста <span style="color:var(--text3);font-size:11px;">(подсказка для DM, не обязательно)</span></label>
+        <textarea id="vm-income" rows="2" placeholder="Например: +1 за каждый ход отдыха; пополняется до максимума при длинном отдыхе."></textarea>
+      </div>
+      <div class="row" style="align-items:center;gap:10px;">
+        <label style="margin:0;">Цвет полосы</label>
+        <input type="color" id="vm-color" value="#6aaa7a" style="width:60px;height:32px;padding:2px;cursor:pointer;">
+      </div>
+    </div>
+    <div id="vm-init-none" class="vm-init-block">
+      <div class="step-sub" style="margin:0;">Эта переменная всегда стартует пустой — заполняется по ходу игры.</div>
+    </div>
+
+    <div class="row-end">
+      <button class="btn btn-sm" id="vm-cancel">Отмена</button>
+      <button class="btn btn-primary btn-sm" id="vm-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div id="game">
+  <div id="game-layout">
+    <div id="sidebar-left-col" style="display:none;">
+      <div id="sidebar-left" class="sidebar"></div>
+    </div>
+    <div id="story-col">
+      <div id="story-box"></div>
+      <div id="input-area">
+        <div id="toolbar">
+          <button class="tool-btn" id="dry-toggle-btn">📋 сухо</button>
+          <button class="tool-btn" id="log-toggle-btn">🔍 лог</button>
+          <button class="tool-btn" id="timers-toggle-btn" style="display:none;">⏱ таймеры</button>
+          <button class="tool-btn" id="incomes-toggle-btn" style="display:none;">💰 инкамы</button>
+          <button class="tool-btn" id="save-game-btn">💾 сохранить</button>
+          <button class="tool-btn" id="load-game-btn">📂 загрузить</button>
+          <input type="file" id="load-game-input" accept=".json" style="display:none">
+          <span style="flex:1"></span>
+          <span id="token-hint"></span>
+        </div>
+        <div id="input-row">
+          <textarea id="action-input" placeholder="Что делаешь?..." rows="1"></textarea>
+          <button id="send-btn">→</button>
+        </div>
+        <div id="loading-bar"></div>
+      </div>
+      <div id="log-panel">
+        <div id="log-header">
+          <span id="log-title">🔍 Лог запросов</span>
+          <button id="log-clear-btn">очистить</button>
+        </div>
+        <div id="log-entries"><span style="color:var(--text3);font-size:11px;padding:6px;">Пока нет запросов</span></div>
+      </div>
+      <div id="timers-panel">
+        <div id="timers-header">
+          <span id="timers-title">⏱ Таймеры</span>
+        </div>
+        <div id="timers-entries"><span style="color:var(--text3);font-size:11px;padding:6px;">Нет активных таймеров</span></div>
+      </div>
+      <div id="incomes-panel">
+        <div id="incomes-header">
+          <span id="incomes-title">💰 Инкамы</span>
+        </div>
+        <div id="incomes-entries"><span style="color:var(--text3);font-size:11px;padding:6px;">Нет активных инкамов</span></div>
+      </div>
+    </div>
+    <div id="sidebar-right-col">
+      <div id="sidebar-right" class="sidebar"></div>
+    </div>
+  </div>
+</div>
+
+<script src="state.js"></script>
+<script src="prompt.js"></script>
+<script src="api.js"></script>
+<script src="ui.js"></script>
+<script src="setup.js"></script>
+</body>
+</html>
