@@ -24,6 +24,7 @@ function renderStepDots() {
 
 function switchBackend(type) {
   config.backend = type;
+  document.getElementById('gemini-settings').style.display = type === 'gemini' ? '' : 'none';
   document.getElementById('anthropic-settings').style.display = type === 'anthropic' ? '' : 'none';
   document.getElementById('openrouter-settings').style.display = type === 'openrouter' ? '' : 'none';
   document.getElementById('openai-settings').style.display = type === 'openai' ? '' : 'none';
@@ -31,7 +32,11 @@ function switchBackend(type) {
 
 function readConnectionSettings() {
   config.backend = document.getElementById('backend-select').value;
-  if (config.backend === 'anthropic') {
+  if (config.backend === 'gemini') {
+    config.gmKey = document.getElementById('gm-key-input').value.trim();
+    config.gmModel = document.getElementById('gm-model').value.trim();
+    config.maxTokens = Number(document.getElementById('gm-tokens').value) || 2000;
+  } else if (config.backend === 'anthropic') {
     apiKey = document.getElementById('key-input').value.trim();
     config.model = document.getElementById('model-select').value;
     config.maxTokens = Number(document.getElementById('tokens-input').value) || 1200;
@@ -390,8 +395,8 @@ function collectPreset() {
   readStorySettings();
   readExtraSettings();
   return {
-    backend: config.backend, apiKey, orKey: config.orKey, oaiKey: config.oaiKey,
-    model: config.model, orModel: config.orModel, oaiModel: config.oaiModel, maxTokens: config.maxTokens,
+    backend: config.backend, apiKey, orKey: config.orKey, oaiKey: config.oaiKey, gmKey: config.gmKey,
+    model: config.model, orModel: config.orModel, oaiModel: config.oaiModel, gmModel: config.gmModel, maxTokens: config.maxTokens,
     dmPersonality: config.dmPersonality, story: config.story, rules: config.rules,
     vars: structuredClone(config.vars), sections: structuredClone(config.sections),
     actions: structuredClone(config.actions),
@@ -405,11 +410,13 @@ function collectPreset() {
 }
 
 function applyPreset(preset) {
-  config.backend = preset.backend || 'anthropic';
+  config.backend = preset.backend || 'gemini';
   // Пресет без ключей (напр. импортированный) не должен затирать текущие
   if (preset.apiKey !== undefined) apiKey = preset.apiKey;
   if (preset.orKey !== undefined) config.orKey = preset.orKey;
   if (preset.oaiKey !== undefined) config.oaiKey = preset.oaiKey;
+  if (preset.gmKey !== undefined) config.gmKey = preset.gmKey;
+  config.gmModel = preset.gmModel || config.gmModel;
   config.model = preset.model || config.model;
   config.orModel = preset.orModel || config.orModel;
   config.oaiModel = preset.oaiModel || config.oaiModel;
@@ -432,6 +439,20 @@ function applyPreset(preset) {
   document.getElementById('key-input').value = apiKey;
   document.getElementById('model-select').value = config.model;
   document.getElementById('tokens-input').value = config.maxTokens;
+  document.getElementById('gm-key-input').value = config.gmKey || '';
+  document.getElementById('gm-tokens').value = config.maxTokens;
+  {
+    const sel = document.getElementById('gm-model-select');
+    const inp = document.getElementById('gm-model');
+    inp.value = config.gmModel || '';
+    if ([...sel.options].some(o => o.value === config.gmModel)) {
+      sel.value = config.gmModel;
+      inp.style.display = 'none';
+    } else {
+      sel.value = 'custom';
+      inp.style.display = '';
+    }
+  }
   document.getElementById('or-key-input').value = config.orKey;
   document.getElementById('or-model').value = config.orModel;
   document.getElementById('or-tokens').value = config.maxTokens;
@@ -524,6 +545,7 @@ document.getElementById('export-preset-btn').onclick = () => {
   delete exportable.apiKey;
   delete exportable.orKey;
   delete exportable.oaiKey;
+  delete exportable.gmKey;
   const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -569,7 +591,7 @@ function loadAutosave() {
   } catch {}
 }
 
-['backend-select','key-input','model-select','tokens-input','or-key-input','or-model','or-tokens','oai-key-input','oai-model','oai-tokens','inp-dm','inp-story','inp-rules'].forEach(id => {
+['backend-select','key-input','model-select','tokens-input','gm-key-input','gm-model','gm-tokens','or-key-input','or-model','or-tokens','oai-key-input','oai-model','oai-tokens','inp-dm','inp-story','inp-rules'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', saveAutosave);
 });
@@ -587,7 +609,11 @@ function validateConfig() {
     if (names.has(v.name)) { alert(`Повторяющийся ключ "${v.name}"`); return false; }
     names.add(v.name);
   }
-  if (config.backend === 'anthropic') {
+  if (config.backend === 'gemini') {
+    if (!config.gmKey.trim()) {
+      if (!confirm('API ключ Google AI пустой.\nПродолжить?')) return false;
+    }
+  } else if (config.backend === 'anthropic') {
     if (!apiKey.trim()) {
       if (!confirm('API ключ Anthropic пустой.\nПродолжить?')) return false;
     }

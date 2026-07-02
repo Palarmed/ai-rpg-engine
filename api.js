@@ -50,7 +50,35 @@ async function callDM(userMsg) {
   try {
     let raw;
 
-    if (config.backend === 'openrouter') {
+    if (config.backend === 'gemini') {
+      const reqBody = JSON.stringify({
+        model: config.gmModel,
+        max_tokens: config.maxTokens,
+        messages: chatMessages.map(m => ({ role: m.role, content: m.content })) // без cache_control: Gemini его не знает
+      });
+      addLogEntry('req', `→ Google AI ${config.gmModel} | ${userMsg?.slice(0, 40) || '(старт)'}`, reqBody);
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.gmKey}`
+        },
+        body: reqBody
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        addLogEntry('err', `✕ Google AI ${res.status}`, JSON.stringify(err, null, 2));
+        addMsg(`Ошибка Google AI (${res.status}): ${err.error?.message || err[0]?.error?.message || ''}`, 'msg-err');
+        return;
+      }
+      const data = await res.json();
+      raw = data.choices?.[0]?.message?.content || '';
+      if (data.usage) {
+        document.getElementById('token-hint').textContent = `↑${data.usage.prompt_tokens} ↓${data.usage.completion_tokens}`;
+      }
+      addLogEntry('res', `← ${config.gmModel} | ↑${data.usage?.prompt_tokens || '?'} ↓${data.usage?.completion_tokens || '?'} токенов`, raw);
+
+    } else if (config.backend === 'openrouter') {
       const reqBody = JSON.stringify({
         model: config.orModel,
         max_tokens: config.maxTokens,
@@ -284,7 +312,23 @@ async function compressChronicle() {
 
   try {
     let summary = '';
-    if (config.backend === 'openrouter') {
+    if (config.backend === 'gemini') {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.gmKey}`
+        },
+        body: JSON.stringify({
+          model: config.gmModel,
+          max_tokens: 400,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (!res.ok) throw new Error(`Google AI ${res.status}`);
+      const data = await res.json();
+      summary = data.choices?.[0]?.message?.content?.trim() || '';
+    } else if (config.backend === 'openrouter') {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {

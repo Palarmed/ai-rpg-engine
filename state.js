@@ -13,7 +13,9 @@ let config = {
   triggers: [],  // { id, varName, event, eventValue, conditions, effects, repeat }
   model: 'claude-sonnet-4-6',
   maxTokens: 1200,
-  backend: 'anthropic',
+  backend: 'gemini',
+  gmKey: '',
+  gmModel: 'gemini-2.5-flash',
   orKey: '',
   orModel: 'meta-llama/llama-3.3-70b-instruct:free',
   oaiKey: '',

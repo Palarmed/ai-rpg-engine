@@ -31,12 +31,32 @@
     <div>
       <label>Бэкенд</label>
       <select id="backend-select">
+        <option value="gemini">Google AI (Gemini, есть щедрый бесплатный тир)</option>
         <option value="anthropic">Anthropic API</option>
         <option value="openai">OpenAI API (ChatGPT)</option>
         <option value="openrouter">OpenRouter (много моделей, есть бесплатные)</option>
       </select>
     </div>
-    <div id="anthropic-settings">
+    <div id="gemini-settings">
+      <div class="step-sub">Получить бесплатный ключ: aistudio.google.com → Get API key (без карты)</div>
+      <div><label>Google AI API Key</label><input type="password" id="gm-key-input" placeholder="AIza..."/></div>
+      <div class="row">
+        <div style="flex:2"><label>Модель</label>
+          <select id="gm-model-select" onchange="
+            const inp = document.getElementById('gm-model');
+            if (this.value === 'custom') { inp.style.display=''; inp.focus(); }
+            else { inp.value = this.value; inp.style.display='none'; }
+          ">
+            <option value="gemini-2.5-flash">gemini-2.5-flash — умнее, лимит ~250/день</option>
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite — проще, лимит ~1000/день</option>
+            <option value="custom">✏ Ввести своё...</option>
+          </select>
+          <input type="text" id="gm-model" value="gemini-2.5-flash" style="display:none;margin-top:6px;" placeholder="gemini-..." />
+        </div>
+        <div style="flex:1"><label>Макс. токенов</label><input type="text" id="gm-tokens" value="2000"/></div>
+      </div>
+    </div>
+    <div id="anthropic-settings" style="display:none;">
       <div class="step-sub">Получить ключ: console.anthropic.com → API Keys</div>
       <div><label>Anthropic API Key</label><input type="password" id="key-input" placeholder="sk-ant-api03-..."/></div>
       <div class="row">
@@ -56,7 +76,6 @@
         if (this.value === 'custom') { inp.style.display=''; inp.focus(); }
         else { inp.value = this.value; inp.style.display='none'; }
       ">
-        <option value="openrouter/owl-alpha">openrouter/owl-alpha</option>
         <option value="google/gemma-4-31b-it:free">google/gemma-4-31b-it:free</option>
         <option value="nvidia/nemotron-3-ultra-550b-a55b:free">nvidia/nemotron-3-ultra-550b-a55b:free</option>
         <option value="custom">✏ Ввести своё...</option>
