@@ -19,6 +19,20 @@ function applyIncomeTick(parsed) {
   renderIncomes();
 }
 
+// ── Повтор при перегрузке (503) и rate-limit (429) ──
+async function fetchWithRetry(url, options, label) {
+  const RETRIES = 3;          // всего попыток: 1 + 3
+  const DELAYS = [2000, 5000, 10000];
+  let res = await fetch(url, options);
+  for (let i = 0; i < RETRIES && (res.status === 503 || res.status === 429); i++) {
+    const loading = document.getElementById('loading-bar');
+    if (loading) loading.textContent = `${label}: перегрузка (${res.status}), повтор через ${DELAYS[i] / 1000}с... (${i + 1}/${RETRIES})`;
+    await new Promise(r => setTimeout(r, DELAYS[i]));
+    res = await fetch(url, options);
+  }
+  return res;
+}
+
 async function callDM(userMsg) {
   const btn = document.getElementById('send-btn');
   const loading = document.getElementById('loading-bar');
@@ -57,14 +71,14 @@ async function callDM(userMsg) {
         messages: chatMessages.map(m => ({ role: m.role, content: m.content })) // без cache_control: Gemini его не знает
       });
       addLogEntry('req', `→ Google AI ${config.gmModel} | ${userMsg?.slice(0, 40) || '(старт)'}`, reqBody);
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      const res = await fetchWithRetry('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.gmKey}`
         },
         body: reqBody
-      });
+      }, 'Google AI');
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         addLogEntry('err', `✕ Google AI ${res.status}`, JSON.stringify(err, null, 2));
@@ -86,7 +100,7 @@ async function callDM(userMsg) {
         reasoning: { enabled: false }
       });
       addLogEntry('req', `→ OpenRouter ${config.orModel} | ${userMsg?.slice(0, 40) || '(старт)'}`, reqBody);
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const res = await fetchWithRetry('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +109,7 @@ async function callDM(userMsg) {
           'X-Title': 'RPG Master'
         },
         body: reqBody
-      });
+      }, 'OpenRouter');
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         addLogEntry('err', `✕ OpenRouter ${res.status}`, JSON.stringify(err, null, 2));
@@ -119,14 +133,14 @@ async function callDM(userMsg) {
       if (!/chat/i.test(config.oaiModel)) oaiBody.reasoning_effort = 'low'; // иначе размышления съедают бюджет max_completion_tokens
       const reqBody = JSON.stringify(oaiBody);
       addLogEntry('req', `→ OpenAI ${config.oaiModel} | ${userMsg?.slice(0, 40) || '(старт)'}`, reqBody);
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.oaiKey}`
         },
         body: reqBody
-      });
+      }, 'OpenAI');
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         addLogEntry('err', `✕ OpenAI ${res.status}`, JSON.stringify(err, null, 2));
@@ -153,7 +167,7 @@ async function callDM(userMsg) {
         messages
       });
       addLogEntry('req', `→ Anthropic ${config.model} | ${userMsg?.slice(0, 40) || '(старт)'}`, reqBody);
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +176,7 @@ async function callDM(userMsg) {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: reqBody
-      });
+      }, 'Anthropic');
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         addLogEntry('err', `✕ Anthropic ${res.status}`, JSON.stringify(err, null, 2));
