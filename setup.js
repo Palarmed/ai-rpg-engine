@@ -83,7 +83,14 @@ document.getElementById('timers-enabled').onchange = function () {
 const TYPE_CLASS = { stat: 'tag-stat', skill: 'tag-stat', resource: 'tag-resource', list: 'tag-list', entry: 'tag-entry', notes: 'tag-notes' };
 
 let sectionIdCounter = 1;
-function newSectionId() { return 'sec_' + (sectionIdCounter++); }
+function newSectionId() {
+  // Пропускаем ID, уже занятые секциями из пресетов/сейвов —
+  // иначе новая секция получает дубликат и «сливается» с существующей
+  let id;
+  do { id = 'sec_' + (sectionIdCounter++); }
+  while (config.sections.some(s => s.id === id));
+  return id;
+}
 
 let vmEditingIndex = null;
 let vmTargetSide = 'right';
@@ -409,6 +416,16 @@ function collectPreset() {
   };
 }
 
+// Ремонт данных: если из старого сейва пришли секции с одинаковыми ID,
+// раздаём дубликатам новые (переменные остаются в первой из совпавших)
+function dedupSectionIds() {
+  const seen = new Set();
+  config.sections.forEach(s => {
+    if (seen.has(s.id)) s.id = newSectionId();
+    seen.add(s.id);
+  });
+}
+
 function applyPreset(preset) {
   config.backend = preset.backend || 'gemini';
   // Пресет без ключей (напр. импортированный) не должен затирать текущие
@@ -426,6 +443,7 @@ function applyPreset(preset) {
   config.rules = preset.rules || '';
   config.vars = structuredClone(preset.vars || []);
   config.sections = structuredClone(preset.sections || []);
+  dedupSectionIds();
   config.actions = structuredClone(preset.actions || []);
   config.triggers = structuredClone(preset.triggers || []);
   config.worldMemory = structuredClone(preset.worldMemory || []);

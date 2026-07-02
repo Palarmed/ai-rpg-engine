@@ -275,6 +275,7 @@ document.getElementById('load-game-input').onchange = e => {
       if (save.configVars) config.vars = save.configVars;
       if (!save.incomes) initIncomesFromVars();
       if (save.configSections) config.sections = save.configSections;
+      dedupSectionIds();
       if (save.story) config.story = save.story;
       if (save.rules) config.rules = save.rules;
       if (save.dmPersonality) config.dmPersonality = save.dmPersonality;
